@@ -1,37 +1,34 @@
-# ---------- Stage 1: Builder ----------
-FROM node:20-slim AS builder
+# ---------- Stage 1: build with Node 18 ----------
+FROM node:18-bullseye AS build
+
 WORKDIR /app
 
-# copy package files first (cache layer for deps)
-COPY package.json package-lock.json* ./
+# Avoid interactive prompts and set Node memory for large builds
+ENV NODE_OPTIONS="--max_old_space_size=4096"
 
-# Use npm ci if lockfile exists else npm install
-RUN if [ -f package-lock.json ]; then \
-      npm ci --silent --no-audit --no-fund; \
-    else \
-      npm install --silent --no-audit --no-fund; \
-    fi
+# Copy package files first for docker layer caching
+COPY package*.json ./
+# Use npm ci to install devDependencies required for build
+RUN npm ci
 
-# copy source and build
+# Copy full source
 COPY . .
 
-# Build angular app (production build)
-# Angular CLI by default writes to dist/<project-name>.
-RUN npm run build -- --configuration production
+# Build: ensure output path matches angular.json
+# using --configuration=production for optimized build
+RUN npm run build -- --output-path=dist/angular-15-crud --configuration=production
 
-# ---------- Stage 2: Runtime (nginx) ----------
-FROM nginx:alpine AS runtime
-# remove default nginx content
+# ---------- Stage 2: serve with nginx ----------
+FROM nginx:stable-bullseye
+
+# Remove default nginx content
 RUN rm -rf /usr/share/nginx/html/*
 
-# copy built files from builder
-# The Angular build output usually ends up at dist/<project-name>.
-# Copy everything under dist into nginx html folder.
-COPY --from=builder /app/dist/* /usr/share/nginx/html/
+# Copy built Angular files from the build stage
+COPY --from=build /app/dist/angular-15-crud/ /usr/share/nginx/html/
 
-# optional: copy a custom nginx conf (uncomment if you have one)
+# Optional: copy a custom nginx config if you want rewrite fallback for SPA
 # COPY nginx/default.conf /etc/nginx/conf.d/default.conf
 
-# run as non-root is not needed for nginx:alpine default, but keep ports explicit
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
