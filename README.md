@@ -1,27 +1,35 @@
-In this DevOps task, you need to build and deploy a full-stack CRUD application using the MEAN stack (MongoDB, Express, Angular 15, and Node.js). The backend will be developed with Node.js and Express to provide REST APIs, connecting to a MongoDB database. The frontend will be an Angular application utilizing HTTPClient for communication.  
+# ---------- builder ----------
+FROM node:16-bullseye-slim AS builder
+WORKDIR /app
 
-The application will manage a collection of tutorials, where each tutorial includes an ID, title, description, and published status. Users will be able to create, retrieve, update, and delete tutorials. Additionally, a search box will allow users to find tutorials by title.
+# Install build tools (some node modules may need them)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential python3 ca-certificates && \
+    rm -rf /var/lib/apt/lists/*
 
-## Project setup
+# Copy package files and install
+COPY package*.json ./
+RUN npm ci
 
-### Node.js Server
+# Copy source
+COPY . .
 
-cd backend
+# Give Node more heap for large builds
+ENV NODE_OPTIONS=--max_old_space_size=4096
 
-npm install
+# Disable angular progress spinner which can sometimes hang in non-TTY docker builds
+# and enable verbose to make failures visible.
+RUN npm run build -- --configuration=production --verbose --progress=false
 
-You can update the MongoDB credentials by modifying the `db.config.js` file located in `app/config/`.
+# ---------- runtime ----------
+FROM nginx:alpine AS runtime
 
-Run `node server.js`
+# Remove default nginx index if exists
+RUN rm -rf /usr/share/nginx/html/*
 
-### Angular Client
+# Replace with your actual dist folder name if different
+# Example below assumes dist/<your-project-folder>/ (Angular default)
+COPY --from=builder /app/dist/ /usr/share/nginx/html/
 
-cd frontend
-
-npm install
-
-Run `ng serve --port 8081`
-
-You can modify the `src/app/services/tutorial.service.ts` file to adjust how the frontend interacts with the backend.
-
-Navigate to `http://localhost:8081/`
+EXPOSE 80
+CMD ["nginx", "-g", "daemon off;"]
