@@ -1,9 +1,10 @@
 # (version line removed — modern docker compose ignores it)
+name: Intern-project
 services:
   frontend:
     build:
       context: ./frontend
-    image: frontend:1.1
+    image: lingannaj/frontend:1.1
     container_name: frontend
     ports:
       - "8081:80"
@@ -16,7 +17,7 @@ services:
   backend:
     build:
       context: ./backend
-    image: backend:1.0
+    image: lingannaj/backend:v1.0
     container_name: backend
     ports:
       - "8080:8080"
@@ -32,7 +33,7 @@ services:
       - intern
 
   mongo:
-    image: mongo:6
+    image: lingannaj/mongo:v1.0
     container_name: mongo
     volumes:
       - mongo_data:/data/db
@@ -52,6 +53,5 @@ volumes:
   mongo_data:
 
 networks:
-  intern:
-    external: true
+  default:
     name: intern
