@@ -1,0 +1,71 @@
+version: "3.8"
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+    image: frontend:1.1
+    container_name: frontend
+    ports:
+      - "8081:80"            # host:container
+    depends_on:
+      - backend
+    restart: unless-stopped
+    networks:
+      - intern
+
+  backend:
+    build:
+      context: ./backend
+    image: backend:1.0
+    container_name: backend
+    ports:
+      - "8080:8080"
+    environment:
+      - NODE_ENV=production
+      - PORT=8080
+      - MONGO_URI=mongodb://mongo:27017/dd_db
+      # If you prefer to enable Mongo auth, uncomment & configure:
+      # - MONGO_URI=mongodb://mongouser:mypassword@mongo:27017/dd_db?authSource=admin
+    depends_on:
+      - mongo
+    restart: unless-stopped
+    networks:
+      - intern
+      
+
+  mongo:
+    image: mongo:6
+    container_name: mongo
+    # If you want to enable authentication, uncomment the next two lines and
+    # create the users via init scripts or MONGO_INITDB_ROOT_USERNAME/ROOT_PASSWORD.
+    # environment:
+    #   - MONGO_INITDB_ROOT_USERNAME=mongouser
+    #   - MONGO_INITDB_ROOT_PASSWORD=mypassword
+    volumes:
+      - mongo_data:/data/db
+    ports:
+      - "27017:27017"
+    restart: unless-stopped
+    networks:
+      - intern
+      
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  mongo_data:
+    # Use default local driver. To map to host path change to:
+    # driver_opts:
+    #   o: bind
+    #   device: /path/on/host/mongo_data
+    #   type: none
+
+networks:
+  dd-net:
+    external: true
+    name: intern
